@@ -119,8 +119,20 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
         uzaylidirX=2;
         
         addEnemy();
-        background.setFramePosition(0);
-        background.start();
+        
+        try {
+            if (background != null) {
+                background.stop();
+                background.close();
+            }
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("background.wav"));
+            background = AudioSystem.getClip();
+            background.open(audioInputStream);
+            background.loop(Clip.LOOP_CONTINUOUSLY);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        
         timer.start();
     }
     
@@ -160,7 +172,13 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
             background=AudioSystem.getClip();
             background.open(audioInputStream);
             background.loop(Clip.LOOP_CONTINUOUSLY);//Sürekli çalmasını istediğimiz için LOOP'a aldık.
-            
+            background.addLineListener(event -> {
+            if (event.getType() == javax.sound.sampled.LineEvent.Type.STOP) {
+                background.setFramePosition(0);
+                background.start();
+            }
+        });
+
             AudioInputStream audioInputStreamWin = AudioSystem.getAudioInputStream(new File("win.wav"));
             win = AudioSystem.getClip();
             win.open(audioInputStreamWin);
