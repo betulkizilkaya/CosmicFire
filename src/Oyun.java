@@ -14,6 +14,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,6 +37,7 @@ class Ates{
     public Ates(int x, int y) {
         this.x = x;
         this.y = y;
+        
     }
 
     public int getX() {
@@ -59,27 +61,22 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
 
     Timer timer=new Timer(5, this);/// 5 milisaniyede bir actionPerformed() metodunu tetikleyen zamanlayıcı
     
-    private int gecen_sure=0;
-    private int harcanan_ates=0;
-    
     private BufferedImage gemi_image;
-    
     private BufferedImage uzayli_image;
-    
     private BufferedImage arkaplan_image;
     
+    private ArrayList<Rectangle> enemies=new ArrayList<Rectangle>();
     private ArrayList<Ates> atesler=new ArrayList<Ates>();
     
     private int atesdirY=1;
-    
-    private int topX = (800 - 20) / 2;//Ortalamak için
-    
-    private int topdirX=3;
-    
+    private int uzaylidirX=3;
     private int uzaygemisiX=0;
-    
     private int diruzayX=20;//Sağ ve sola bastığımızda hareket edeceği birim
-
+    private int currentScore=0;
+    private int highScore=0;
+    private int currentTime=60000;
+    private int enemyMoveCounter = 0;
+   
     private boolean atesEdiliyorMu=false;
     
     private Clip background;
@@ -88,21 +85,77 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
     
     public boolean kontrolEt(){
         
-        for(Ates ates: atesler){
-            Rectangle atesRect = new Rectangle(ates.getX(), ates.getY(), 10, 20);
-            Rectangle topRect = new Rectangle(topX, 50, 55, 55);
-
-
-            if (atesRect.intersects(topRect)) {
-                return true;
+        for(Rectangle enemy: enemies){
+            for(Ates ates: atesler){
+                Rectangle atesRect = new Rectangle(ates.getX(), ates.getY(), 10, 20);
+                if (atesRect.intersects(enemy)) {
+                    currentScore +=10;
+                    enemies.remove(enemy);
+                    addEnemy();
+                    return true;
+                }
             }
         }
         return false;
     }
     
+    public void addEnemy(){//Uzaylımız öldüğünde yerine rastgele bir x koordinatında yenisini oluşturuyor.
+        int panelWidth=getWidth();
+        if(panelWidth<=55){
+            panelWidth=680;
+        }
+        
+        int randomX=new Random().nextInt(getWidth()-140)+70;
+        enemies.add(new Rectangle(randomX,50,55,55));
+    }
+    
+    public void restartGame(){
+        enemies.clear();
+        atesler.clear();
+        
+        uzaygemisiX=(800-gemi_image.getWidth()/10)/2;
+        currentScore=0;
+        currentTime=60000;
+        uzaylidirX=2;
+        
+        addEnemy();
+        background.setFramePosition(0);
+        background.start();
+        timer.start();
+    }
+    
+    public void endGame(String messageTitle){
+        background.stop();
+        win.stop();
+        timer.stop();
+        
+        background.stop();
+        timer.stop();
+        
+        DBManager.saveScore(currentScore);
+        highScore = DBManager.getHighScore();
+
+        String[] options={"Try Again","Exit"};
+        int choice=JOptionPane.showOptionDialog(this, messageTitle+
+                                "\nScore: "+currentScore+
+                                "\nHigh Score: "+highScore, "Game Over", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                                null, options, options[0]);
+        
+        if(choice==0){
+            restartGame();
+        }
+        else{
+            System.exit(0);
+        }
+    }
+    
+    
     public Oyun() {
         
+        
+        this.setSize(800,600);
         try{
+            highScore = DBManager.getHighScore();
             AudioInputStream audioInputStream=AudioSystem.getAudioInputStream(new File("background.wav"));
             background=AudioSystem.getClip();
             background.open(audioInputStream);
@@ -129,7 +182,7 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
         }
         setBackground(new Color(10, 25, 47)); // Uzay görüntüsü için gece mavisi
 
-        
+        addEnemy();
         timer.start();
         
     }
@@ -139,47 +192,36 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
         super.paint(g); 
         
         g.drawImage(arkaplan_image, 0, 0,getWidth(),getHeight(), this);
-        
-        gecen_sure+=5;
     
-        g.setColor(Color.red);
-        
-        //g.fillOval(topX, 0, 20, 20);//Çizim yapmak yerine görsel ekliyoruz.
-        
-        g.drawImage(uzayli_image, topX, 50, 70, 70, this);
-
         g.drawImage(gemi_image, uzaygemisiX, 450, gemi_image.getWidth()/10,gemi_image.getHeight()/10,this);
         
-        for(Ates ates: atesler){
+    
+        for(Iterator<Ates> iterator=atesler.iterator(); iterator.hasNext();){
+            Ates ates=iterator.next();
             if(ates.getY()<0){
-                atesler.remove(ates);
+                iterator.remove();
             }
+        }
+        
+        for(Rectangle i: enemies){
+            g.drawImage(uzayli_image, i.x, i.y, 70, 70, this);
         }
         
         g.setColor(Color.YELLOW);
         
         for(Ates ates: atesler){
-            
-            //Alevli atış
-            /*Graphics2D g2d = (Graphics2D) g;
-            GradientPaint gp = new GradientPaint(ates.getX(), ates.getY(), Color.YELLOW,ates.getX(), ates.getY() + 20, Color.RED);
-            g2d.setPaint(gp);
-            g2d.fillRect(ates.getX(), ates.getY(), 6, 20);
-            */
-
             //Rengarenk lazer atışları
             Color[] renkler = {Color.RED, Color.ORANGE, Color.YELLOW, Color.CYAN};
             g.setColor(renkler[new Random().nextInt(renkler.length)]);
             g.fillRect(ates.getX(), ates.getY(), 8, 18);
-
-            //Kare ateşler için
-            //g.fillRect(ates.getX(),ates.getY(),10,20);
         }
         
         g.setFont(new Font("Courier", Font.PLAIN, 20));
         g.setColor(Color.WHITE);
-        g.drawString("Time: "+(gecen_sure/1000)+" sec", 10, 20);
-        g.drawString("Shots: "+harcanan_ates,10, 40);
+        
+        g.drawString("Time Left: " + (currentTime/1000), 10, 20);
+        g.drawString("Score: " + currentScore, 10, 40);
+        g.drawString("High Score: " + highScore, 10,60);
 
     }
 
@@ -215,7 +257,6 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
         
         else if(c==KeyEvent.VK_CONTROL && !atesEdiliyorMu){
             atesler.add(new Ates(uzaygemisiX+47,456));
-            harcanan_ates++;
             
             if(laser.isRunning()){
                 laser.stop();
@@ -232,43 +273,56 @@ public class Oyun extends JPanel implements KeyListener,ActionListener{
     public void keyReleased(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.VK_CONTROL) {
         atesEdiliyorMu = false;
-}
-
+        }
     }
 
     @Override
-    public void actionPerformed(ActionEvent e) {
-       
-        for(Ates ates: atesler){
-            ates.setY(ates.getY()-atesdirY);
+    public void actionPerformed(ActionEvent e) { 
+        enemyMoveCounter++;
+        if(enemyMoveCounter>=3){
+            boolean reverseDirection=false;
             
+            
+            for(Rectangle i: enemies){
+                i.x+=uzaylidirX;
+                
+                if(i.x<=0||i.x>=getWidth()-70){
+                    reverseDirection=true;
+                }
+            }
+            
+            if(reverseDirection){
+                uzaylidirX=-uzaylidirX;
+                for(Rectangle enemy: enemies){
+                    enemy.y+=50;
+                }
+            }
+            enemyMoveCounter=0;
         }
         
-        topX+=topdirX;
-        
-        if(topX>=705){
-            topdirX = -topdirX;
+       for(Rectangle enemy: enemies){
+            if(enemy.y>=getHeight()-150){
+                endGame("-GAME OVER-\nAn Alien Reached Earth!");
+                return;
+            }
         }
         
-        if(topX<=10){
-            topdirX= -topdirX;
+ 
+        for(Ates ates: atesler){
+            ates.setY(ates.getY()-atesdirY);   
         }
         
-        if(kontrolEt()){
-            background.stop();
+        kontrolEt();
+        
+        if(currentTime>0){
+            currentTime-=5;
+        }
+        
+        if(currentTime<=0){
             win.start();
-            timer.stop();
-            String message="You Win!!!\n"+
-                           "Shots Fired: "+harcanan_ates+
-                           "\nTime Elapsed: "+(gecen_sure/1000.0)+" sec";
-            JOptionPane.showMessageDialog(this, message);
-            System.exit(0);
+            endGame("-Time's Up!");
+            return;
         }
-        
         repaint();
-        
     }
-    
-    
-    
 }
