@@ -57,6 +57,12 @@ CosmicFire/
 └── win.wav                # End-of-round sound effect
 ```
 
+## AI-Generated Assets
+
+The visual and audio assets used in this project were created with the assistance of artificial intelligence tools.
+
+This includes the game background, spaceship and alien images, background music, and sound effects. These assets were then selected, organized, and integrated into the Java game by the project developer.
+
 ## Database Setup
 
 CosmicFire uses MySQL to save scores and retrieve the highest score.
